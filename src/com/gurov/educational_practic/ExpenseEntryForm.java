@@ -17,18 +17,68 @@ import javafx.scene.layout.VBox;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 import java.io.*;
-import java.util.ArrayList;
-import java.util.List;
 
 public class ExpenseEntryForm extends Application{
 
-    String fileName = "Expenses.dat";
+    ObservableList<Expenses> expenses = FXCollections.observableArrayList();
+    FileChooser fileChooser = new FileChooser();
+    FileChooser.ExtensionFilter txtFilter = new FileChooser.ExtensionFilter("Текстовые файлы (*.txt)","*.txt");
+    File file;
+    String string;
+    Label nutritionLabel = new Label();
+    Label medicineLabel = new Label();
+    Label houseLabel = new Label();
+    Label transportLabel = new Label();
+    Label educationLabel = new Label();
+    Label borrowLabel = new Label();
+    Label otherLabel = new Label();
 
     public static void main(String[] args) {
 
         Application.launch(args);
     }
-    @SuppressWarnings("unchecked")
+
+    public void LabelSetText(double nut,double med,double hou,double tra,double edu,double bor,double oth){
+
+        nutritionLabel.setText("Питание " + String.format("%.2f",nut) + "%");
+        medicineLabel.setText("Здоровье/медицина " + String.format("%.2f",med) + "%");
+        houseLabel.setText("Дом " + String.format("%.2f",hou) + "%");
+        transportLabel.setText("Транспорт " + String.format("%.2f",tra) + "%");
+        educationLabel.setText("Обучение " + String.format("%.2f",edu) + "%");
+        borrowLabel.setText("Займы " + String.format("%.2f",bor) + "%");
+        otherLabel.setText("Прочие расходы " + String.format("%.2f",oth) + "%");
+    }
+
+    public void LabelSetTextAtChanges(){
+
+        if (expenses.size() == 0)
+            LabelSetText(0,0,0,0,0,0,0);
+        else{
+            double nutritionValues = 0.0;
+            double medicineValues = 0.0;
+            double houseValues = 0.0;
+            double transportValues = 0.0;
+            double educationValues = 0.0;
+            double borrowValues = 0.0;
+            double otherValues = 0.0;
+            for (int i = 0;i < expenses.size();i++){
+                nutritionValues += expenses.get(i).getNutrition();
+                medicineValues += expenses.get(i).getMedicine();
+                houseValues += expenses.get(i).getHouse();
+                transportValues += expenses.get(i).getTransport();
+                educationValues += expenses.get(i).getEducation();
+                borrowValues += expenses.get(i).getBorrow();
+                otherValues += expenses.get(i).getOther();
+            }
+            double denominator = (nutritionValues + medicineValues + houseValues + transportValues + educationValues +
+                    borrowValues + otherValues) / 100;
+            LabelSetText(nutritionValues / denominator,medicineValues / denominator, houseValues / denominator,
+                    transportValues / denominator,educationValues / denominator,borrowValues / denominator,
+                    otherValues / denominator);
+        }
+    }
+
+    //@SuppressWarnings("unchecked")
     @Override
     public void start(Stage stage) throws Exception {
 
@@ -59,9 +109,9 @@ public class ExpenseEntryForm extends Application{
         otherField.setPromptText("Прочее");
         otherField.setMinWidth(57);
 
-        Button btDelete = new Button("Удалить запись");
+        LabelSetText(0,0,0,0,0,0,0);
 
-        ObservableList<Expenses> expenses = FXCollections.observableArrayList();
+        Button btDelete = new Button("Удалить запись");
 
         TableView<Expenses> table = new TableView<Expenses>(expenses);
         table.setPrefWidth(588);
@@ -121,6 +171,7 @@ public class ExpenseEntryForm extends Application{
         btCreate.setOnAction(actionEvent -> {
             expenses.clear();
             btDelete.setDisable(true);
+            LabelSetText(0,0,0,0,0,0,0);
         });
 
         Button btOpen = new Button("Открыть журнал");
@@ -135,14 +186,13 @@ public class ExpenseEntryForm extends Application{
                 expenses.clear();
                 Node source = (Node) actionEvent.getSource();
                 Stage primaryStage = (Stage) source.getScene().getWindow();
-                FileChooser fileChooser = new FileChooser();
-                FileChooser.ExtensionFilter txtFilter = new FileChooser.ExtensionFilter("Текстовые файлы (*.txt)","*.txt");
                 fileChooser.getExtensionFilters().add(txtFilter);
                 fileChooser.getExtensionFilters().addAll(txtFilter);
-                fileChooser.setTitle("Выбор файла журнала");
-                File file = fileChooser.showOpenDialog(primaryStage);
+                fileChooser.setTitle("Выбор файла с журналом");
+                fileChooser.setInitialDirectory(new File(System.getProperty("user.home")));
+                file = fileChooser.showOpenDialog(primaryStage);
                 try(BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(new FileInputStream(file),"cp1251"))){
-                    String string = bufferedReader.readLine();
+                    string = bufferedReader.readLine();
                     while(string != null) {
                         String[] values = string.split(" ");
                         if (values.length == 7){
@@ -152,22 +202,10 @@ public class ExpenseEntryForm extends Application{
                         }
                         string = bufferedReader.readLine();
                     }
+                    LabelSetTextAtChanges();
                 }
                 catch (FileNotFoundException e){}
                 catch (IOException e){}
-
-                /*ObservableList<Expenses> newExpenses = FXCollections.observableArrayList();
-                try(ObjectInputStream objectInputStream = new ObjectInputStream(new FileInputStream(fileName))){
-                    newExpenses = ((ObservableList<Expenses>) objectInputStream.readObject());
-                    //expenses = newExpenses;
-                    for (Expenses item : newExpenses){
-                        expenses.add(new Expenses(item.getNutrition(),item.getMedicine(),item.getHouse(),item.getTransport(),
-                                item.getEducation(),item.getBorrow(),item.getOther()));
-                    }
-                }
-                catch (Exception ex){
-                    ex.getMessage();
-                }*/
             }
         });
 
@@ -180,12 +218,22 @@ public class ExpenseEntryForm extends Application{
             @Override
             public void handle(ActionEvent actionEvent) {
 
-                try(ObjectOutputStream objectOutputStream = new ObjectOutputStream(new FileOutputStream(fileName))){
-                    objectOutputStream.writeObject(expenses);
+                fileChooser.getExtensionFilters().add(txtFilter);
+                fileChooser.setTitle("Сохранение журнала в файл");
+                fileChooser.setInitialDirectory(new File(System.getProperty("user.home")));
+                file = fileChooser.showSaveDialog(stage);
+                try(BufferedWriter bufferedWriter = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(file)))){
+                    string = "";
+                    for (int i=0;i< expenses.size();i++){
+                        Expenses objectExpenses = expenses.get(i);
+                        string = String.join(" ",String.valueOf(objectExpenses.getNutrition()),String.valueOf(objectExpenses.getMedicine()),
+                                String.valueOf(objectExpenses.getHouse()),String.valueOf(objectExpenses.getTransport()),String.valueOf(objectExpenses.getEducation()),
+                                String.valueOf(objectExpenses.getBorrow()),String.valueOf(objectExpenses.getOther()));
+                        bufferedWriter.write(string);
+                        bufferedWriter.newLine();
+                    }
                 }
-                catch (Exception ex){
-                    ex.getMessage();
-                }
+                catch (IOException e){}
             }
         });
 
@@ -252,6 +300,7 @@ public class ExpenseEntryForm extends Application{
             expenses.set(selectIndex,new Expenses(Double.parseDouble(nutritionField.getText()),Double.parseDouble(medicineField.getText()),
                     Double.parseDouble(houseField.getText()),Double.parseDouble(transportField.getText()),
                     Double.parseDouble(educationField.getText()),Double.parseDouble(borrowField.getText()),Double.parseDouble(otherField.getText())));
+            LabelSetTextAtChanges();
         });
 
         btDelete.setMinWidth(80);/**кнопка удалить*/
@@ -266,6 +315,7 @@ public class ExpenseEntryForm extends Application{
             table.getItems().remove(selectIndex);
             if (expenses.size() == 0)
                 btDelete.setDisable(true);
+            LabelSetTextAtChanges();
         });
 
         Button btAdded = new Button("Добавить запись");
@@ -279,6 +329,7 @@ public class ExpenseEntryForm extends Application{
             expenses.add(new Expenses(Double.parseDouble(nutritionField.getText()),Double.parseDouble(medicineField.getText()),
                     Double.parseDouble(houseField.getText()),Double.parseDouble(transportField.getText()),
                     Double.parseDouble(educationField.getText()),Double.parseDouble(borrowField.getText()),Double.parseDouble(otherField.getText())));
+            LabelSetTextAtChanges();
         });
 
         HBox buttonRadioButtonsHBox = new HBox(10);
@@ -303,7 +354,12 @@ public class ExpenseEntryForm extends Application{
         tableHBox.setMaxHeight(Double.MAX_VALUE);
         tableHBox.setAlignment(Pos.BOTTOM_CENTER);
 
-        VBox root = new VBox(buttonHBox,buttonRadioButtonsHBox,textButtonHBox,tableHBox);
+        FlowPane labelPane = new FlowPane(10,10,nutritionLabel,medicineLabel,houseLabel,
+                transportLabel,educationLabel,borrowLabel,otherLabel);
+        labelPane.setPadding(new Insets(10,0,0,0));
+        labelPane.setAlignment(Pos.CENTER);
+
+        VBox root = new VBox(buttonHBox,buttonRadioButtonsHBox,textButtonHBox,tableHBox,labelPane);
         root.setPadding(new Insets(10));
         VBox.setVgrow(tableHBox,Priority.ALWAYS);
 

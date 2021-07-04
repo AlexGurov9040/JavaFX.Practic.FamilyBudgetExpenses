@@ -2,9 +2,7 @@ package com.gurov.educational_practic;
 
 import javafx.beans.property.SimpleDoubleProperty;
 
-import java.io.Serializable;
-
-public class Expenses implements Serializable {
+public class Expenses {
 
     private SimpleDoubleProperty nutrition;
     private SimpleDoubleProperty medicine;
